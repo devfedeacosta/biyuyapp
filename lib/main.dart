@@ -1,27 +1,34 @@
 import 'package:flutter/material.dart';
 import 'screens/scanner_screen.dart';
+import 'services/ocr_service.dart';
 
-void main() {
+const String _devApiKey = 'AIzaSyCnMydHQ1wLvoSJOGWX07dtE8cWMZ9YrDY';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const MPAliasScannerApp());
+  final ocrService = OcrService();
+  await ocrService.init(_devApiKey);
+  runApp(MPAliasScannerApp(ocrService: ocrService));
 }
 
 class MPAliasScannerApp extends StatelessWidget {
-  const MPAliasScannerApp({super.key});
+  final OcrService ocrService;
+  const MPAliasScannerApp({super.key, required this.ocrService});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MP Alias Scanner',
+      title: 'Biyuyapp',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF009EE3),
-          brightness: Brightness.dark,
+          seedColor: const Color(0xFF10B981),
+          brightness: Brightness.light,
         ),
+        fontFamily: 'Nunito',
         useMaterial3: true,
       ),
-      home: const ScannerScreen(),
+      home: ScannerScreen(ocrService: ocrService),
     );
   }
 }

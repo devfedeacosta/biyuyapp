@@ -5,28 +5,51 @@ import 'package:url_launcher/url_launcher.dart';
 class AliasResultSheet extends StatefulWidget {
   final String alias;
   final VoidCallback onScanAgain;
-
-  const AliasResultSheet({
-    super.key,
-    required this.alias,
-    required this.onScanAgain,
-  });
+  const AliasResultSheet({super.key, required this.alias, required this.onScanAgain});
 
   @override
   State<AliasResultSheet> createState() => _AliasResultSheetState();
 }
 
 class _AliasResultSheetState extends State<AliasResultSheet> {
-  bool _copied = false;
+  bool _opened = false;
+  static const _platform = MethodChannel('com.biyuyapp/launcher');
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _copyAndOpen());
+  }
 
   Future<void> _copyAndOpen() async {
+    if (_opened) return;
+    _opened = true;
     await Clipboard.setData(ClipboardData(text: widget.alias));
-    setState(() => _copied = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    final uri = Uri.parse('https://www.mercadopago.com.ar/transfer');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      await _platform.invokeMethod('launchApp', {
+        'package': 'com.mercadopago.wallet',
+        'activity': 'com.mercadopago.wallet.SplashActivityAliasDefault',
+      });
+    } catch (e) {
+      await launchUrl(
+        Uri.parse('https://www.mercadopago.com.ar/transfer'),
+        mode: LaunchMode.externalApplication,
+      );
     }
+  }
+
+  Widget _outlineText(String text, double size, Color fill, Color outline) {
+    return Stack(
+      children: [
+        Text(text, style: TextStyle(
+          fontFamily: 'Nunito', fontWeight: FontWeight.w900, fontSize: size,
+          foreground: Paint()..style = PaintingStyle.stroke..strokeWidth = 4..color = outline,
+        )),
+        Text(text, style: TextStyle(
+          fontFamily: 'Nunito', fontWeight: FontWeight.w900, fontSize: size, color: fill,
+        )),
+      ],
+    );
   }
 
   @override
@@ -35,95 +58,105 @@ class _AliasResultSheetState extends State<AliasResultSheet> {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        color: Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(top: BorderSide(color: Color(0xFF064E3B), width: 3)),
       ),
       padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 16,
+        left: 24, right: 24, top: 16,
         bottom: MediaQuery.of(context).viewInsets.bottom + 32,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 40,
-            height: 4,
+            width: 44, height: 5,
             decoration: BoxDecoration(
-              color: Colors.white24,
-              borderRadius: BorderRadius.circular(2),
+              color: const Color(0xFF10B981),
+              borderRadius: BorderRadius.circular(3),
+              border: Border.all(color: const Color(0xFF064E3B), width: 1.5),
             ),
           ),
           const SizedBox(height: 20),
+
           Container(
-            width: 64,
-            height: 64,
-            decoration: const BoxDecoration(
-              color: Color(0xFF00C896),
+            width: 68, height: 68,
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981),
               shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFF064E3B), width: 3),
             ),
-            child: const Icon(Icons.check, color: Colors.white, size: 36),
+            child: const Icon(Icons.check_rounded, color: Colors.white, size: 38),
           ),
-          const SizedBox(height: 16),
-          Text(
-            isCvu ? 'CVU Detectado' : 'Alias Detectado',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
+          const SizedBox(height: 14),
+
+          _outlineText(
+            isCvu ? 'CVU detectado!' : 'Alias detectado!',
+            22, const Color(0xFF10B981), const Color(0xFF064E3B),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
+
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.07),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: const Color(0xFF009EE3).withOpacity(0.4),
-              ),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF064E3B), width: 2.5),
             ),
             child: Text(
               widget.alias,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                color: Color(0xFF009EE3),
+                fontFamily: 'Nunito',
+                fontWeight: FontWeight.w900,
                 fontSize: 18,
-                fontWeight: FontWeight.w600,
+                color: Color(0xFF064E3B),
                 letterSpacing: 0.5,
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
+
           const Text(
-            'El alias se copiará al portapapeles.\nPegalo en MercadoPago para transferir.',
+            '📋 Copiado · 🚀 Abriendo MercadoPago...',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white54, fontSize: 13),
+            style: TextStyle(
+              fontFamily: 'Nunito',
+              fontWeight: FontWeight.w900,
+              fontSize: 13,
+              color: Color(0xFF059669),
+            ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+
           SizedBox(
             width: double.infinity,
-            height: 52,
+            height: 54,
             child: ElevatedButton.icon(
-              onPressed: _copied ? null : _copyAndOpen,
+              onPressed: _copyAndOpen,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF009EE3),
+                backgroundColor: const Color(0xFF10B981),
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: const Color(0xFF00C896),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: Color(0xFF064E3B), width: 2.5),
                 ),
+                elevation: 0,
               ),
-              icon: Icon(_copied ? Icons.check : Icons.open_in_new, size: 20),
-              label: Text(
-                _copied ? '¡Copiado! Abriendo MP...' : 'Copiar y abrir MercadoPago',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              icon: const Icon(Icons.open_in_new_rounded, size: 20),
+              label: const Text(
+                'Abrir MercadoPago',
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                ),
               ),
             ),
           ),
           const SizedBox(height: 12),
+
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -133,14 +166,21 @@ class _AliasResultSheetState extends State<AliasResultSheet> {
                 widget.onScanAgain();
               },
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white70,
-                side: BorderSide(color: Colors.white.withOpacity(0.2)),
+                foregroundColor: const Color(0xFF064E3B),
+                side: const BorderSide(color: Color(0xFF064E3B), width: 2),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                 ),
               ),
-              icon: const Icon(Icons.qr_code_scanner, size: 18),
-              label: const Text('Escanear otro alias', style: TextStyle(fontSize: 15)),
+              icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+              label: const Text(
+                'Escanear otro alias',
+                style: TextStyle(
+                  fontFamily: 'Nunito',
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15,
+                ),
+              ),
             ),
           ),
         ],

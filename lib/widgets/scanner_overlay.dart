@@ -41,7 +41,7 @@ class _ScannerOverlayState extends State<ScannerOverlay>
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final boxWidth = size.width * 0.8;
-    const boxHeight = 120.0;
+    const boxHeight = 180.0;
     final boxLeft = (size.width - boxWidth) / 2;
     final boxTop = size.height * 0.35;
 
@@ -60,71 +60,7 @@ class _ScannerOverlayState extends State<ScannerOverlay>
         if (!widget.aliasDetected)
           AnimatedBuilder(
             animation: _scanLineAnim,
-            builder: (_,
-cat > lib/widgets/scanner_overlay.dart << 'EOF'
-import 'package:flutter/material.dart';
-
-class ScannerOverlay extends StatefulWidget {
-  final String statusMessage;
-  final bool aliasDetected;
-  final String? detectedAlias;
-
-  const ScannerOverlay({
-    super.key,
-    required this.statusMessage,
-    required this.aliasDetected,
-    this.detectedAlias,
-  });
-
-  @override
-  State<ScannerOverlay> createState() => _ScannerOverlayState();
-}
-
-class _ScannerOverlayState extends State<ScannerOverlay>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animController;
-  late Animation<double> _scanLineAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-    _scanLineAnim = Tween<double>(begin: 0.0, end: 1.0).animate(_animController);
-  }
-
-  @override
-  void dispose() {
-    _animController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final boxWidth = size.width * 0.8;
-    const boxHeight = 120.0;
-    final boxLeft = (size.width - boxWidth) / 2;
-    final boxTop = size.height * 0.35;
-
-    final borderColor = widget.aliasDetected
-        ? const Color(0xFF00C896)
-        : const Color(0xFF009EE3);
-
-    return Stack(
-      children: [
-        CustomPaint(
-          size: size,
-          painter: _OverlayPainter(
-            boxRect: Rect.fromLTWH(boxLeft, boxTop, boxWidth, boxHeight),
-          ),
-        ),
-        if (!widget.aliasDetected)
-          AnimatedBuilder(
-            animation: _scanLineAnim,
-            builder: (_, __) {
+            builder: (context, child) {
               return Positioned(
                 left: boxLeft + 8,
                 top: boxTop + 8 + (_scanLineAnim.value * (boxHeight - 16)),
@@ -173,7 +109,7 @@ class _ScannerOverlayState extends State<ScannerOverlay>
           right: 0,
           top: boxTop - 48,
           child: const Text(
-            'Encuadrá el alias dentro del recuadro',
+            'Encuadra el alias dentro del recuadro',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.white70,
@@ -207,8 +143,10 @@ class _OverlayPainter extends CustomPainter {
 }
 
 class _ScanFrame extends StatelessWidget {
-  final double width, height;
+  final double width;
+  final double height;
   final Color color;
+
   const _ScanFrame({required this.width, required this.height, required this.color});
 
   @override
@@ -238,29 +176,37 @@ class _FramePainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    canvas.drawPath(Path()
-      ..moveTo(0, cornerLen + r)
-      ..lineTo(0, r)
-      ..arcToPoint(Offset(r, 0), radius: const Radius.circular(r), clockwise: true)
-      ..lineTo(cornerLen + r, 0), paint);
+    canvas.drawPath(
+        Path()
+          ..moveTo(0, cornerLen + r)
+          ..lineTo(0, r)
+          ..arcToPoint(Offset(r, 0), radius: const Radius.circular(r), clockwise: true)
+          ..lineTo(cornerLen + r, 0),
+        paint);
 
-    canvas.drawPath(Path()
-      ..moveTo(w - cornerLen - r, 0)
-      ..lineTo(w - r, 0)
-      ..arcToPoint(Offset(w, r), radius: const Radius.circular(r), clockwise: true)
-      ..lineTo(w, cornerLen + r), paint);
+    canvas.drawPath(
+        Path()
+          ..moveTo(w - cornerLen - r, 0)
+          ..lineTo(w - r, 0)
+          ..arcToPoint(Offset(w, r), radius: const Radius.circular(r), clockwise: true)
+          ..lineTo(w, cornerLen + r),
+        paint);
 
-    canvas.drawPath(Path()
-      ..moveTo(0, h - cornerLen - r)
-      ..lineTo(0, h - r)
-      ..arcToPoint(Offset(r, h), radius: const Radius.circular(r), clockwise: false)
-      ..lineTo(cornerLen + r, h), paint);
+    canvas.drawPath(
+        Path()
+          ..moveTo(0, h - cornerLen - r)
+          ..lineTo(0, h - r)
+          ..arcToPoint(Offset(r, h), radius: const Radius.circular(r), clockwise: false)
+          ..lineTo(cornerLen + r, h),
+        paint);
 
-    canvas.drawPath(Path()
-      ..moveTo(w - cornerLen - r, h)
-      ..lineTo(w - r, h)
-      ..arcToPoint(Offset(w, h - r), radius: const Radius.circular(r), clockwise: false)
-      ..lineTo(w, h - cornerLen - r), paint);
+    canvas.drawPath(
+        Path()
+          ..moveTo(w - cornerLen - r, h)
+          ..lineTo(w - r, h)
+          ..arcToPoint(Offset(w, h - r), radius: const Radius.circular(r), clockwise: false)
+          ..lineTo(w, h - cornerLen - r),
+        paint);
   }
 
   @override
