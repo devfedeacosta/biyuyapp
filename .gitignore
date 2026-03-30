@@ -46,3 +46,6 @@ app.*.map.json
 lib/main.dart
 lib/main.dart
 lib/main.dart
+
+# Sensitive API keys
+.env
