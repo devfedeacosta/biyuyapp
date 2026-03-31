@@ -16,22 +16,26 @@ class OcrService {
 
   String? _tempPath;
   String? _apiKeyValue;
+  bool _isInitializing = false;
 
-  // Scan box ratio — must match scanner_overlay.dart
-  // boxWidth = screenWidth * 0.8, boxHeight = 220, boxTop = screenHeight * 0.35
-  // We pass screen dimensions from the UI
   double screenWidth = 0;
   double screenHeight = 0;
 
-  Future<void> init(String apiKey) async {
+  Future<void> init(String? apiKey) async {
+    if (apiKey == null || apiKey.isEmpty) {
+      debugPrint('OCR ERROR: API Key is empty. Check .env');
+      return;
+    }
+    _isInitializing = true;
     _apiKeyValue = apiKey;
+    _isInitializing = false;
+    debugPrint('OCR Service: Initialized.');
   }
 
   Future<String?> detectAlias(
       CameraImage image, CameraDescription camera) async {
     try {
-      if (_apiKeyValue == null || _apiKeyValue!.isEmpty) {
-        debugPrint('OCR: no API key set');
+      if (_apiKeyValue == null || _apiKeyValue!.isEmpty || _isInitializing) {
         return null;
       }
 
@@ -45,7 +49,6 @@ class OcrService {
         'uvRowStride': image.planes[1].bytesPerRow,
         'uvPixelStride': image.planes[1].bytesPerPixel ?? 1,
         'rotation': camera.sensorOrientation,
-        // Pass screen dimensions for crop
         'screenWidth': screenWidth,
         'screenHeight': screenHeight,
       });
@@ -72,68 +75,55 @@ class OcrService {
         }),
       );
 
-      if (response.statusCode != 200) {
-        debugPrint('OCR API error: ${response.statusCode} ${response.body}');
-        return null;
-      }
+      if (response.statusCode != 200) return null;
 
       final json = jsonDecode(response.body);
       final rawText = json['responses']?[0]?['fullTextAnnotation']?['text']
               ?.toString() ?? '';
 
-      debugPrint('OCR TEXT: "$rawText"');
       if (rawText.isEmpty) return null;
 
-      // CVU check
+      // 1. CVU Priority
       final cvuMatch = _cvuPattern.firstMatch(rawText);
       if (cvuMatch != null) return cvuMatch.group(0);
 
+      // 2. PRIORITY: Clean Single Word & Artifact Removal
+      // This catches custom aliases even if OCR adds a fake dot/comma
+      final potentialChunks = rawText.split(RegExp(r'[\s\n,:]+'));
+      for (final chunk in potentialChunks) {
+        // Remove trailing/leading symbols
+        final rawWord = chunk.replaceAll(RegExp(r'^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$'), '');
+        
+        // Strategy A: Direct Check (No dots)
+        if (rawWord.length >= 6 && !rawWord.contains('.')) {
+          if (_isLikelyAlias(rawWord)) {
+            debugPrint('OCR SINGLE WORD: "$rawWord"');
+            return rawWord.toLowerCase();
+          }
+        }
+
+        // Strategy B: Artifact Removal (Ignore dots inside long strings)
+        if (rawWord.contains('.')) {
+          final stripped = rawWord.replaceAll('.', '');
+          if (stripped.length >= 7 && _isLikelyAlias(stripped)) {
+            debugPrint('OCR STRIPPED ARTIFACTS: "$stripped"');
+            return stripped.toLowerCase();
+          }
+        }
+      }
+
+      // 3. FALLBACK: Dot-Separated Logic (For casa.perro.luz)
       final cleaned = rawText
           .replaceAll('\n', ' ')
-          .replaceAll(RegExp(r'[,،]'), '.')
+          .replaceAll(RegExp(r'[,،]'), '.') 
           .replaceAll(RegExp(r'\s+'), ' ')
           .trim();
 
-      // Strategy 1: direct match
       final r1 = _extractAlias(cleaned);
       if (r1 != null) return r1;
 
-      // Strategy 2: spaces around dots
       final r2 = _extractAlias(cleaned.replaceAll(RegExp(r'\s*\.\s*'), '.'));
       if (r2 != null) return r2;
-
-      // Strategy 3: no spaces
-      final r3 = _extractAlias(cleaned.replaceAll(' ', ''));
-      if (r3 != null) return r3;
-
-      // Strategy 4: word reconstruction
-      final words = cleaned
-          .toLowerCase()
-          .split(' ')
-          .map((w) => w.replaceAll(RegExp(r'[^a-z0-9.]'), ''))
-          .where((w) => w.isNotEmpty && RegExp(r'^[a-z0-9.]+$').hasMatch(w))
-          .toList();
-
-      debugPrint('OCR WORDS: $words');
-
-      if (words.length >= 2 && words.length <= 5) {
-        // Try: (all but last joined) . (last)
-        final prefix = words.sublist(0, words.length - 1).join('');
-        final suffix = words.last;
-        final c1 = '$prefix.$suffix';
-        debugPrint('OCR TRY: "$c1"');
-        if (_isLikelyAlias(c1)) return c1;
-
-        // Try: (first) . (rest joined)
-        final c2 = '${words.first}.${words.sublist(1).join('')}';
-        debugPrint('OCR TRY: "$c2"');
-        if (_isLikelyAlias(c2)) return c2;
-
-        // Try all with dots
-        final c3 = words.join('.');
-        debugPrint('OCR TRY: "$c3"');
-        if (_isLikelyAlias(c3)) return c3;
-      }
 
       return null;
     } catch (e) {
@@ -145,10 +135,38 @@ class OcrService {
   String? _extractAlias(String text) {
     for (final match in _aliasPattern.allMatches(text)) {
       final candidate = match.group(0)!.toLowerCase().trim();
-      debugPrint('OCR CANDIDATE: "$candidate"');
       if (_isLikelyAlias(candidate)) return candidate;
     }
     return null;
+  }
+
+  static const List<String> _argSuffixes = [
+    '.mp', '.pp', '.modo', '.bna', '.bbva', '.galicia',
+    '.santander', '.macro', '.naranja', '.uala', '.brubank',
+    '.personal', '.claro', '.telecom', '.hsbc', '.icbc',
+    '.supervielle', '.patagonia', '.comafi', '.bind', '.mercadopago'
+  ];
+
+  static const Set<String> _forbidden = {
+    'alias', 'cbu', 'cvu', 'pago', 'monto', 'enviar', 'alias:', 'nombre', 'titular', 'aceptar', 'destino'
+  };
+
+  bool _isLikelyAlias(String text) {
+    if (text.isEmpty) return false;
+    final lower = text.toLowerCase();
+    if (_forbidden.contains(lower)) return false;
+
+    if (_argSuffixes.any((s) => lower.endsWith(s)) && text.length >= 4) return true;
+    if (text.contains('@') || text.startsWith('www.') || text.contains('://')) return false;
+
+    final segments = text.split('.');
+    if (segments.length == 1) {
+      if (text.length < 6) return false; 
+      final hasLetters = RegExp(r'[a-zA-Z]').hasMatch(text);
+      final isAlphanumeric = RegExp(r'^[a-zA-Z0-9]+$').hasMatch(text);
+      return hasLetters && isAlphanumeric && !RegExp(r'^\d+$').hasMatch(text);
+    }
+    return segments.length <= 4 && text.length >= 5;
   }
 
   static Uint8List? _toJpeg(Map<String, dynamic> data) {
@@ -162,10 +180,9 @@ class OcrService {
       final int uvRowStride = data['uvRowStride'] as int;
       final int uvPixelStride = data['uvPixelStride'] as int;
       final int sensorOrientation = data['rotation'] as int;
-      final double screenWidth = (data['screenWidth'] as double?) ?? 0;
-      final double screenHeight = (data['screenHeight'] as double?) ?? 0;
+      final double sWidth = (data['screenWidth'] as double?) ?? 0;
+      final double sHeight = (data['screenHeight'] as double?) ?? 0;
 
-      // Build full RGB image
       final rgbImage = img.Image(width: width, height: height);
       for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
@@ -185,7 +202,6 @@ class OcrService {
         }
       }
 
-      // Rotate
       img.Image rotated;
       switch (sensorOrientation) {
         case 90:  rotated = img.copyRotate(rgbImage, angle: 90); break;
@@ -194,75 +210,30 @@ class OcrService {
         default:  rotated = rgbImage;
       }
 
-      // Crop to scan box area if screen dimensions are available
-      if (screenWidth > 0 && screenHeight > 0) {
+      if (sWidth > 0 && sHeight > 0) {
         final double boxWidthRatio = 0.8;
         const double boxHeight = 220.0;
         final double boxTopRatio = 0.35;
-
-        final double scaleX = rotated.width / screenWidth;
-        final double scaleY = rotated.height / screenHeight;
-
-        final int cropX = ((screenWidth * (1 - boxWidthRatio) / 2) * scaleX).round();
-        final int cropY = ((screenHeight * boxTopRatio) * scaleY).round();
-        final int cropW = ((screenWidth * boxWidthRatio) * scaleX).round();
+        final double scaleX = rotated.width / sWidth;
+        final double scaleY = rotated.height / sHeight;
+        final int cropX = ((sWidth * (1 - boxWidthRatio) / 2) * scaleX).round();
+        final int cropY = ((sHeight * boxTopRatio) * scaleY).round();
+        final int cropW = ((sWidth * boxWidthRatio) * scaleX).round();
         final int cropH = (boxHeight * scaleY).round();
-
-        // Add padding around the box
         final int padX = (cropW * 0.05).round();
         final int padY = (cropH * 0.1).round();
-
         final int finalX = (cropX - padX).clamp(0, rotated.width - 1);
         final int finalY = (cropY - padY).clamp(0, rotated.height - 1);
         final int finalW = (cropW + padX * 2).clamp(1, rotated.width - finalX);
         final int finalH = (cropH + padY * 2).clamp(1, rotated.height - finalY);
 
-        debugPrint('OCR CROP: ${finalX},${finalY} ${finalW}x${finalH} from ${rotated.width}x${rotated.height}');
-
-        final cropped = img.copyCrop(rotated,
-            x: finalX, y: finalY, width: finalW, height: finalH);
+        final cropped = img.copyCrop(rotated, x: finalX, y: finalY, width: finalW, height: finalH);
         return Uint8List.fromList(img.encodeJpg(cropped, quality: 95));
       }
-
       return Uint8List.fromList(img.encodeJpg(rotated, quality: 95));
     } catch (e) {
       return null;
     }
-  }
-
-  // Known Argentine payment app suffixes
-  static const List<String> _argSuffixes = [
-    '.mp', '.pp', '.modo', '.bna', '.bbva', '.galicia',
-    '.santander', '.macro', '.naranja', '.uala', '.brubank',
-    '.personal', '.claro', '.telecom', '.hsbc', '.icbc',
-    '.supervielle', '.patagonia', '.comafi', '.bind',
-  ];
-
-  bool _isLikelyAlias(String text) {
-    final lower = text.toLowerCase();
-    // Accept directly if ends with known Argentine suffix
-    if (_argSuffixes.any((s) => lower.endsWith(s)) && text.length >= 5) return true;
-    // Known Argentine payment suffixes
-    final knownSuffixes = ['.mp', '.pp', '.modo', '.bna', '.bbva', '.galicia', '.santander', '.macro', '.naranja', '.uala', '.brubank', '.mercadopago'];
-    final lowerText = text.toLowerCase();
-    final hasKnownSuffix = knownSuffixes.any((s) => lowerText.endsWith(s));
-    // If it has a known suffix, accept it directly
-    if (hasKnownSuffix && text.length >= 5) return true;
-    if (text.isEmpty) return false;
-    if (text.contains('@')) return false;
-    if (text.startsWith('www.')) return false;
-    if (text.contains('://')) return false;
-    if (text.endsWith('.com') || text.endsWith('.ar') || text.endsWith('.org')) return false;
-    final segments = text.split('.');
-    if (segments.length < 2) return false;
-    if (segments.length > 4) return false;
-    if (segments.any((s) => s.isEmpty)) return false;
-    // Allow short segments like .mp .pp
-    if (segments.any((s) => s.length < 1)) return false;
-    if (segments.every((s) => RegExp(r'^\d+$').hasMatch(s))) return false;
-    if (!segments.any((s) => RegExp(r'[a-zA-Z]').hasMatch(s))) return false;
-    if (text.length < 5) return false;
-    return true;
   }
 
   void dispose() {}

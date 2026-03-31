@@ -16,7 +16,7 @@ void main() async {
   }
 
   // 3. Grab the key using the name we chose earlier
-  final String apiKey = dotenv.env['Cloud_Vision_API_Key'] ?? '';
+  final String apiKey = dotenv.env['GOOGLE_VISION_API_KEY'] ?? '';
 
   final ocrService = OcrService();
   
