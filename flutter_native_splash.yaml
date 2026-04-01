@@ -1,0 +1,7 @@
+flutter_native_splash:
+  # This matches your adaptive icon background color
+  color: "#063B2A"
+  # Removing the 'image' line forces a solid color splash
+  fullscreen: true
+  android_12:
+    color: "#063B2A"

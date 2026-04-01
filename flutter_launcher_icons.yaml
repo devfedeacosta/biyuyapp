@@ -1,0 +1,10 @@
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/foreground.png"
+  adaptive_icon_background: "#063B2A"
+  adaptive_icon_foreground: "assets/icon/foreground.png"
+  # Increasing this from 30 to 40 shrinks the hand to fit the circle
+  adaptive_icon_foreground_inset: 40
+  web:
+    generate: true

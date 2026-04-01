@@ -15,21 +15,31 @@ dependencies:
   image: ^4.2.0
   path_provider: ^2.1.2
   http: ^1.2.0
-  # 1. ADD THIS LINE BELOW
   flutter_dotenv: ^5.1.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.7
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/foreground.png"
+  adaptive_icon_background: "#063B2A"
+  adaptive_icon_foreground: "assets/icon/foreground.png"
+  adaptive_icon_foreground_inset: 40
+  web:
+    generate: true
 
 flutter:
   uses-material-design: true
-  
-  # 2. ADD THIS ASSETS SECTION
   assets:
     - .env
-
+    - assets/icon/
+    - assets/logos/
   fonts:
     - family: Nunito
       fonts:

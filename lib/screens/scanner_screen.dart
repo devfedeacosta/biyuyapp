@@ -166,7 +166,7 @@ class _ScannerScreenState extends State<ScannerScreen>
               detectedAlias: _detectedAlias,
             ),
 
-          // Top bar — Biyuyapp with Nunito Black outline style
+          // Top bar
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -181,7 +181,6 @@ class _ScannerScreenState extends State<ScannerScreen>
                     ),
                     child: Stack(
                       children: [
-                        // Outline layer
                         Text(
                           'Biyuyapp',
                           style: TextStyle(
@@ -194,7 +193,6 @@ class _ScannerScreenState extends State<ScannerScreen>
                               ..color = const Color(0xFF033728),
                           ),
                         ),
-                        // Fill layer
                         const Text(
                           'Biyuyapp',
                           style: TextStyle(
@@ -243,10 +241,7 @@ class _ScannerScreenState extends State<ScannerScreen>
                         color: _isScanning
                             ? const Color(0xFF10B981).withOpacity(0.6)
                             : const Color(0xFF10B981),
-                        border: Border.all(
-                          color: const Color(0xFF064E3B),
-                          width: 4,
-                        ),
+                        border: Border.all(color: const Color(0xFF064E3B), width: 4),
                         boxShadow: [
                           BoxShadow(
                             color: const Color(0xFF10B981).withOpacity(0.5),
@@ -268,6 +263,17 @@ class _ScannerScreenState extends State<ScannerScreen>
                               color: Colors.white,
                               size: 38,
                             ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Escanear',
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontWeight: FontWeight.w900,
+                      fontSize: 13,
+                      color: Colors.white,
+                      shadows: [Shadow(color: Colors.black, blurRadius: 6)],
                     ),
                   ),
                 ],
