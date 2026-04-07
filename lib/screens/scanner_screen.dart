@@ -182,7 +182,7 @@ class _ScannerScreenState extends State<ScannerScreen>
                     child: Stack(
                       children: [
                         Text(
-                          'Biyuyapp',
+                          'BiyuYA',
                           style: TextStyle(
                             fontFamily: 'Nunito',
                             fontWeight: FontWeight.w900,
@@ -194,7 +194,7 @@ class _ScannerScreenState extends State<ScannerScreen>
                           ),
                         ),
                         const Text(
-                          'Biyuyapp',
+                          'BiyuYA',
                           style: TextStyle(
                             fontFamily: 'Nunito',
                             fontWeight: FontWeight.w900,
